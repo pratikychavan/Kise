@@ -7,9 +7,9 @@ import time
 import psutil
 
 sqs = boto3.client("sqs")
-task_queue = sqs.get_queue_url(QueueName="EE-Task-Queue.fifo")
-control_queue = sqs.get_queue_url(QueueName="EE-Control-Queue.fifo")
-result_queue = sqs.get_queue_url(QueueName="EE-Result-Queue.fifo")
+task_queue = sqs.get_queue_url(QueueName="EE-Task-Queue")
+control_queue = sqs.get_queue_url(QueueName="EE-Control-Queue")
+result_queue = sqs.get_queue_url(QueueName="EE-Result-Queue")
 SUBPROCESSES = {}
 
 class VirtualEnvironmentWorker:
@@ -65,9 +65,7 @@ class QueueManager:
     def send_message(self, queue, message):
         sqs.send_message(
             QueueUrl=queue["QueueUrl"],
-            MessageBody=json.dumps(message),
-            MessageGroupId="1",
-            MessageDeduplicationId="1"
+            MessageBody=json.dumps(message)
         )
     
     def receive_message(self, queue):
@@ -87,7 +85,7 @@ concurrency = os.environ.get("CONCURRENCY",3)
 vw = VirtualEnvironmentWorker()
 qm = QueueManager()
 
-while True:
+def task_executor():
     counter_for_metric_update = 0
     time.sleep(1)
     counter_for_metric_update += 1
@@ -121,5 +119,15 @@ while True:
         if data["action"] == "delete":
             vw.delete_job(data["task_id"])
 
+from multiprocessing.pool import ThreadPool
 
-
+while True:
+    pool_size = 2
+    i = 2
+    pool = ThreadPool(pool_size)
+    while i != 0:
+        pool.apply_async(task_executor)
+        time.sleep(5)
+        i = i-1
+    pool.close()
+    pool.join()
