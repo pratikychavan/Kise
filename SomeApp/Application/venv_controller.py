@@ -26,9 +26,7 @@ class VirtualEnvironmentProvider:
             raise OverflowError("Max Concurrency Achieved.")
         sqs.send_message(
             QueueUrl=task_queue,
-            MessageBody=json.dumps(message),
-            MessageGroupId="1",
-            MessageDeduplicationId="1"
+            MessageBody=json.dumps(message)
         )
         vt = VenvTracker(
             task_id=message["task_id"],
@@ -40,9 +38,7 @@ class VirtualEnvironmentProvider:
     def delete_job(self, task_id):
         sqs.send_message(
             QueueUrl=control_queue,
-            MessageBody={"task_id": task_id, "action":"delete"},
-            MessageGroupId="1",
-            MessageDeduplicationId="1"
+            MessageBody={"task_id": task_id, "action":"delete"}
         )
         vt = VenvTracker.objects.filter(task_id=task_id)
         if vt.exists():
