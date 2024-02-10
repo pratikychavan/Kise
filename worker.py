@@ -122,12 +122,7 @@ def task_executor():
 from multiprocessing.pool import ThreadPool
 
 while True:
-    pool_size = 2
-    i = 2
-    pool = ThreadPool(pool_size)
-    while i != 0:
-        pool.apply_async(task_executor)
-        time.sleep(5)
-        i = i-1
+    pool = ThreadPool(2)
+    pool.apply_async(task_executor)
     pool.close()
     pool.join()
