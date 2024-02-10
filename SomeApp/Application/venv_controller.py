@@ -12,9 +12,9 @@ from Application.models import SomeTaskReview, VenvTracker
 # control_queue = "EE-Control-Queue"
 
 sqs = boto3.client("sqs")
-task_queue = sqs.get_queue_url(QueueName="EE-Task-Queue.fifo")
-control_queue = sqs.get_queue_url(QueueName="EE-Control-Queue.fifo")
-result_queue = sqs.get_queue_url(QueueName="EE-Result-Queue.fifo")
+task_queue = sqs.get_queue_url(QueueName="EE-Task-Queue")
+control_queue = sqs.get_queue_url(QueueName="EE-Control-Queue")
+result_queue = sqs.get_queue_url(QueueName="EE-Result-Queue")
 
 class VirtualEnvironmentProvider:
     def __init__(self):

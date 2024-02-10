@@ -1,0 +1,3 @@
+django-rest-framework
+awscli
+boto3
