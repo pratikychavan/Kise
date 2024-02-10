@@ -91,20 +91,28 @@ while True:
     counter_for_metric_update = 0
     time.sleep(1)
     counter_for_metric_update += 1
+    print("counter set")
     if counter_for_metric_update == 60:
         metrics = vw.get_metrics()
         qm.send_message(result_queue, metrics)
         counter_for_metric_update = 0
-    if len(vw.venv_tracker) < concurrency:
+    if len(SUBPROCESSES) < concurrency:
+        print("concurrency checked")
         task_message = qm.receive_message(task_queue)
+        print("got message")
+        print(task_message)
         if task_message.get("Messages"):
             qm.delete_message(task_queue, task_message)
             data = json.loads(task_message["Messages"][0]["Body"])
+            print("data")
+            print(data)
             status = vw.run_job(data)
+            print("job created")
             create_status = {
                 "task_id": data["task_id"],
                 "status": "Created"
                 }
+            print("update sent to other queue")
             qm.send_message(result_queue, create_status)
     control_message = qm.receive_message(control_queue)
     if control_message.get("Messages"):
