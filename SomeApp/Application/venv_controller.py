@@ -6,8 +6,8 @@ import subprocess
 import signal
 import time
 
-from Application.serializers import SomeTaskSerializer
-from Application.models import SomeTaskReview
+from Application.serializers import SomeTaskSerializer, VenvTrackerSerializer
+from Application.models import SomeTaskReview, VenvTracker
 # task_queue = "EE-Task-Queue"
 # control_queue = "EE-Control-Queue"
 
@@ -18,25 +18,24 @@ result_queue = sqs.get_queue_url(QueueName="EE-Result-Queue.fifo")
 
 class VirtualEnvironmentProvider:
     def __init__(self):
-        self.venv_tracker = {}
         self.concurrency = os.environ.get("CONCURRENCY",3)
         pass
     
     def create_job(self, message):
+        if not VenvTracker.objects.all().count() < self.concurrency:
+            raise OverflowError("Max Concurrency Achieved.")
         sqs.send_message(
             QueueUrl=task_queue,
             MessageBody=json.dumps(message),
             MessageGroupId="1",
             MessageDeduplicationId="1"
         )
-        self.venv_tracker[message["task_id"]] = {"status": "Created"}
+        vt = VenvTracker(
+            task_id=message["task_id"],
+            status="Created"
+        )
+        vt.save()
         return {"task_id":message["task_id"],"status":"Created"}
-    
-    def update_venv_tracker(self, message):
-        if message["task_status"] in ["Completed", "Deleted", "Error"]:
-            del self.venv_tracker[message["task_id"]]
-        else:
-            self.venv_tracker[message["task_id"]] = {"status":message["task_status"]}
     
     def delete_job(self, task_id):
         sqs.send_message(
@@ -45,10 +44,17 @@ class VirtualEnvironmentProvider:
             MessageGroupId="1",
             MessageDeduplicationId="1"
         )
+        vt = VenvTracker.objects.filter(task_id=task_id)
+        if vt.exists():
+            vt.delete()
         return {"task_id":task_id, "status":"Deletion in progress"}
     
     def list_jobs(self):
-        return self.venv_tracker
+        vts = VenvTracker.objects.all()
+        serializer = VenvTrackerSerializer(vts, many=True)
+        if serializer.is_valid():
+            return serializer.data
+        return serializer.errors
 
 vp = VirtualEnvironmentProvider()
 
