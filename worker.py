@@ -16,7 +16,7 @@ class VirtualEnvironmentWorker:
 
     def run_job(self, message):
         print(f"message: {message}")
-        venv_path = message["key"].split(".")[0]
+        venv_path = message["task_id"]
         venv.create(env_dir=f"./{venv_path}", with_pip=True)
         SUBPROCESSES[venv_path] = {"status": "Created"}
         activate_script = os.path.join(venv_path, "bin", "activate")
