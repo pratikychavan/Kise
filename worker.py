@@ -5,6 +5,7 @@ import os
 import subprocess
 import time
 import psutil
+import traceback
 
 sqs = boto3.client("sqs")
 task_queue = sqs.get_queue_url(QueueName="EE-Task-Queue")
@@ -86,38 +87,50 @@ vw = VirtualEnvironmentWorker()
 qm = QueueManager()
 
 def task_executor():
-    counter_for_metric_update = 0
-    time.sleep(1)
-    counter_for_metric_update += 1
-    print("counter set")
-    if counter_for_metric_update == 60:
-        metrics = vw.get_metrics()
-        qm.send_message(result_queue, metrics)
+    try:
         counter_for_metric_update = 0
-    if len(SUBPROCESSES) < concurrency:
-        print("concurrency checked")
-        task_message = qm.receive_message(task_queue)
-        print("got message")
-        print(task_message)
-        if task_message.get("Messages"):
-            qm.delete_message(task_queue, task_message)
-            data = json.loads(task_message["Messages"][0]["Body"])
-            print("data")
-            print(data)
-            status = vw.run_job(data)
-            print("job created")
-            create_status = {
-                "task_id": data["task_id"],
-                "status": "Created"
-                }
-            print("update sent to other queue")
-            qm.send_message(result_queue, create_status)
-    control_message = qm.receive_message(control_queue)
-    if control_message.get("Messages"):
-        qm.delete_message(control_queue, control_message)
-        data = json.loads(control_message["Messages"][0]["Body"])
-        if data["action"] == "delete":
-            vw.delete_job(data["task_id"])
+        time.sleep(1)
+        counter_for_metric_update += 1
+        print("counter set")
+        print(SUBPROCESSES)
+        if counter_for_metric_update == 10:
+            metrics = vw.get_metrics()
+            print(f"METRICS---------------------------:{metrics}")
+            qm.send_message(result_queue, metrics)
+            counter_for_metric_update = 0
+        if len(SUBPROCESSES) < concurrency:
+            print("concurrency checked")
+            task_message = qm.receive_message(task_queue)
+            print("got message")
+            print(task_message)
+            if task_message.get("Messages"):
+                qm.delete_message(task_queue, task_message)
+                data = json.loads(task_message["Messages"][0]["Body"])
+                print("data")
+                print(data)
+                status = vw.run_job(data)
+                print("job created")
+                create_status = {
+                    "task_id": data["task_id"],
+                    "status": "Created"
+                    }
+                print("update sent to other queue")
+                qm.send_message(result_queue, create_status)
+        control_message = qm.receive_message(control_queue)
+        if control_message.get("Messages"):
+            qm.delete_message(control_queue, control_message)
+            data = json.loads(control_message["Messages"][0]["Body"])
+            if data["task_id"] not in SUBPROCESSES:
+                qm.send_message(control_queue, data)
+            elif data["action"] == "delete":
+                vw.delete_job(data["task_id"])
+            elif data["action"] == "suspend":
+                vw.suspend_job(data["task_id"])
+            elif data["action"] == "resume":
+                vw.resume_job(data["task_id"])
+    except Exception as e:
+        traceback.print_exc()
+        print("Something broke")
 
 from multiprocessing.pool import ThreadPool
 
