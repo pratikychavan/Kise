@@ -25,7 +25,9 @@ share/python-wheels/
 .installed.cfg
 *.egg
 *.env
-
+compose.yml
+credentials.sh
+Makefile
 MANIFEST
 
 # PyInstaller
