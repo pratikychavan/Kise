@@ -1,0 +1,37 @@
+version: "3"
+services:
+  void_django:
+    image: voiddjango
+    build: 
+      context: .
+      args:
+        - server=django
+    working_dir: /code/django
+    container_name: void_django
+    ports:
+      - "5000:5000"
+    volumes:
+      - .:/code
+    command:
+      - django
+    networks:
+      - djangonetwork
+
+  void_worker:
+    image: voidworker
+    build: 
+      context: .
+      args:
+        - server=worker
+    working_dir: /code/worker
+    container_name: void_worker
+    volumes:
+      - .:/code
+    command:
+      - worker
+    networks:
+      - djangonetwork
+
+networks:
+  djangonetwork:
+    driver: bridge

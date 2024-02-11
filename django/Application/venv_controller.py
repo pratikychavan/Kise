@@ -25,7 +25,7 @@ class VirtualEnvironmentProvider:
         if not VenvTracker.objects.all().count() < self.concurrency:
             raise OverflowError("Max Concurrency Achieved.")
         sqs.send_message(
-            QueueUrl=task_queue,
+            QueueUrl=task_queue["QueueUrl"],
             MessageBody=json.dumps(message)
         )
         vt = VenvTracker(
@@ -36,9 +36,10 @@ class VirtualEnvironmentProvider:
         return {"task_id":message["task_id"],"status":"Created"}
     
     def delete_job(self, task_id):
+        body = json.dumps({"task_id": task_id, "action":"delete"})
         sqs.send_message(
-            QueueUrl=control_queue,
-            MessageBody={"task_id": task_id, "action":"delete"}
+            QueueUrl=control_queue["QueueUrl"],
+            MessageBody=body
         )
         vt = VenvTracker.objects.filter(task_id=task_id)
         if vt.exists():
@@ -48,9 +49,7 @@ class VirtualEnvironmentProvider:
     def list_jobs(self):
         vts = VenvTracker.objects.all()
         serializer = VenvTrackerSerializer(vts, many=True)
-        if serializer.is_valid():
-            return serializer.data
-        return serializer.errors
+        return serializer.data
 
 vp = VirtualEnvironmentProvider()
 
