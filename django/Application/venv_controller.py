@@ -88,4 +88,4 @@ def debug_task():
                 send_mail_to_admin(body)
         except Exception as e:
             print(f"Something went wrong: {e}")
-            send_mail_to_admin(body)
+            send_mail_to_admin(f"{e}")
