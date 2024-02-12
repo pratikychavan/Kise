@@ -6,6 +6,7 @@ import subprocess
 import time
 import psutil
 import traceback
+import signal
 
 sqs = boto3.client("sqs")
 task_queue = sqs.get_queue_url(QueueName="EE-Task-Queue")
@@ -23,8 +24,14 @@ class VirtualEnvironmentWorker:
         activate_script = os.path.join(venv_path, "bin", "activate")
         python_interpreter = os.path.join(venv_path, "bin", "python")
         subprocess.run(["bash", activate_script])
-        p = subprocess.Popen([python_interpreter, "task.py"])
-        SUBPROCESSES[venv_path] = {"status": "Running", "PID":p.pid}
+        p = subprocess.Popen([python_interpreter, "worker/task.py"])
+        SUBPROCESSES[venv_path] = {
+            "task_id": venv_path,    
+            "cpu_utilization": 0,
+            "memory_utilization": 0,
+            "status": "Running", 
+            "PID":p.pid
+            }
         return "Created"
     
     def delete_job(self, venv_path):
@@ -46,18 +53,30 @@ class VirtualEnvironmentWorker:
         SUBPROCESSES[venv_path]["status"] = "Resumed"
         return "Resumed"
     
+    def complete_job(self, venv_path, result):
+        qm.send_message(result_queue, result)
+        del SUBPROCESSES[venv_path]
+        subprocess.run(["rm", "-r", venv_path])
+        os.kill(os.getpid(), signal.SIGTERM)
+        exit()
+    
     def get_metrics(self):
         if not SUBPROCESSES:
             return {
                 "cpu_percent": 0,
                 "memory_percent": 0,
             }
+        metrics = []
         for sp in SUBPROCESSES:
             process = psutil.Process(sp["PID"])
-            return {
-                "cpu_percent": process.cpu_percent,
-                "memory_percent": process.memory_percent,
-            }
+            metrics.append({
+                "task_id": sp,
+                "status":sp["status"],
+                "process_id": sp["PID"],
+                "cpu_utilization": process.cpu_percent,
+                "memory_utilization": process.memory_percent,
+            })
+        return json.dumps({"operation":"venv_metrics","metrics":metrics})
 
 class QueueManager:
     def __init__(self):
@@ -91,30 +110,23 @@ def task_executor():
         counter_for_metric_update = 0
         time.sleep(1)
         counter_for_metric_update += 1
-        print("counter set")
-        print(SUBPROCESSES)
         if counter_for_metric_update == 10:
             metrics = vw.get_metrics()
-            print(f"METRICS---------------------------:{metrics}")
             qm.send_message(result_queue, metrics)
             counter_for_metric_update = 0
         if len(SUBPROCESSES) < concurrency:
-            print("concurrency checked")
             task_message = qm.receive_message(task_queue)
-            print("got message")
-            print(task_message)
             if task_message.get("Messages"):
                 qm.delete_message(task_queue, task_message)
                 data = json.loads(task_message["Messages"][0]["Body"])
-                print("data")
-                print(data)
                 status = vw.run_job(data)
-                print("job created")
                 create_status = {
-                    "task_id": data["task_id"],
-                    "status": "Created"
-                    }
-                print("update sent to other queue")
+                    "operation": "task_update",
+                    "updates":{
+                        "task_id": data["task_id"],
+                        "status": "Created"
+                        }
+                }
                 qm.send_message(result_queue, create_status)
         control_message = qm.receive_message(control_queue)
         if control_message.get("Messages"):

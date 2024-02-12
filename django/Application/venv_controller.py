@@ -50,8 +50,17 @@ class VirtualEnvironmentProvider:
         vts = VenvTracker.objects.all()
         serializer = VenvTrackerSerializer(vts, many=True)
         return serializer.data
+    
+    def save_metrics(self, metrics):
+        vt, new_vt = VenvTracker.objects.get_or_create(task_id=metrics['task_id'])
+        for k,v in metrics.items():
+            setattr(vt, k, v)
+        vt.save()
 
 vp = VirtualEnvironmentProvider()
+
+def send_mail_to_admin(task):
+    pass
 
 def debug_task():
     while True:
@@ -61,14 +70,22 @@ def debug_task():
             )
         try:
             body = json.loads(message['Messages'][0]['Body'])
-            tro = SomeTaskReview.objects.get(task_id=body["task_id"])
-            if body.get("task_status") in ["Created", "Running"]:
-                vp.update_venv_tracker(body)
-                tro.status = "In Progress"
+            if body.get("operation") and body.get("operation") == "venv_metrics" and body.get("metrics"):
+                for metric in body["metrics"]:
+                    vp.save_metrics(metric)
+            elif body.get("operation") and body.get("operation") == "task_update" and body.get("updates"):
+                vp.save_metrics(body["updates"])
+                tro = SomeTaskReview.objects.get(task_id=body["updates"]["task_id"])
+                tro.status = body["updates"]["status"]
+                tro.save()
+            elif body.get("operation") not in ["venv_metrics", "task_update", None] and body.get("results"):
+                tro = SomeTaskReview.objects.get(task_id=body["task_id"])
+                for k,v in body["results"].items():
+                    setattr(tro, k, v)
                 tro.save()
             else:
-                serializer = SomeTaskSerializer(tro, body)
-                if serializer.is_valid():
-                    serializer.save()
+                print(f"invalid message: {body}")
+                send_mail_to_admin(body)
         except Exception as e:
-            pass
+            print(f"Something went wrong: {e}")
+            send_mail_to_admin(body)

@@ -10,8 +10,9 @@ class Base(models.Model):
 
 class SomeTaskReview(Base):
     status = models.CharField(max_length=50, default="", null=True)
+    operation = models.CharField(max_length=50)
     params = models.JSONField(default=dict, null=True)
-    
+    results = models.JSONField(default=dict, null=True)
 
 class VenvTracker(Base):
     task_id = models.CharField(max_length=50)
