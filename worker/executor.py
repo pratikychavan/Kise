@@ -3,12 +3,13 @@ import time
 import json
 
 from constants import SUBPROCESSES, concurrency, task_queue, control_queue, result_queue
-from controllers import vw
+from controllers import VirtualEnvironmentWorker
+
+vw = VirtualEnvironmentWorker()
 
 def check_task_messages():
     if len(SUBPROCESSES) < concurrency:
         task_message = vw.receive_message(task_queue)
-        print(task_message)
         if task_message.get("Messages"):
             vw.delete_message(task_queue, task_message)
             data = json.loads(task_message["Messages"][0]["Body"])
@@ -24,7 +25,6 @@ def check_task_messages():
 
 def check_control_messages():
     control_message = vw.receive_message(control_queue)
-    print(control_message)
     if control_message.get("Messages"):
         vw.delete_message(control_queue, control_message)
         data = json.loads(control_message["Messages"][0]["Body"])

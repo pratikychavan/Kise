@@ -5,7 +5,7 @@ import subprocess
 import psutil
 import signal
 
-from worker.constants import sqs,result_queue, SUBPROCESSES
+from constants import sqs,result_queue, SUBPROCESSES
 
 class VirtualEnvironmentWorker:
     def __init__(self):
@@ -31,24 +31,25 @@ class VirtualEnvironmentWorker:
     
     def run_job(self, message):
         print(f"message: {message}")
-        venv_path = message["task_id"]
+        venv_name = message["params"]["task_id"]
         venv.create(
-            env_dir=f"./{venv_path}", 
+            env_dir=f"/code/worker/{venv_name}", 
             with_pip=True,
             system_site_packages=True
         )
-        SUBPROCESSES[venv_path] = {"status": "Created"}
-        activate_script = os.path.join(venv_path, "bin", "activate")
-        python_interpreter = os.path.join(venv_path, "bin", "python")
+        SUBPROCESSES[venv_name] = {"status": "Created"}
+        activate_script = os.path.join(venv_name, "bin", "activate")
+        python_interpreter = os.path.join(venv_name, "bin", "python")
         task_env = os.environ.copy()
         subprocess.run(["bash", activate_script])
-        task_env["venv_path"] = venv_path
+        task_env["venv_name"] = venv_name
         p = subprocess.Popen(
             [python_interpreter, "worker/task.py"],
-            env=task_env
+            env=task_env,
+            stdout=f"/code/outputs/{venv_name}/task_exec.log"
             )
-        SUBPROCESSES[venv_path] = {
-            "task_id": venv_path,    
+        SUBPROCESSES[venv_name] = {
+            "task_id": venv_name,    
             "cpu_utilization": 0,
             "memory_utilization": 0,
             "status": "Running", 
@@ -56,29 +57,29 @@ class VirtualEnvironmentWorker:
             }
         return "Created"
     
-    def delete_job(self, venv_path):
-        process = psutil.Process(SUBPROCESSES[venv_path]["PID"])
+    def delete_job(self, venv_name):
+        process = psutil.Process(SUBPROCESSES[venv_name]["PID"])
         process.kill()
-        subprocess.run(["rm","-r",venv_path])
-        del SUBPROCESSES[venv_path]
+        subprocess.run(["rm","-r",venv_name])
+        del SUBPROCESSES[venv_name]
         return "Deleted"
     
-    def suspend_job(self, venv_path):
-        process = psutil.Process(SUBPROCESSES[venv_path]["PID"])
+    def suspend_job(self, venv_name):
+        process = psutil.Process(SUBPROCESSES[venv_name]["PID"])
         process.suspend()
-        SUBPROCESSES[venv_path]["status"] = "Suspended"
+        SUBPROCESSES[venv_name]["status"] = "Suspended"
         return "Suspended"
     
-    def resume_job(self, venv_path):
-        process = psutil.Process(SUBPROCESSES[venv_path]["PID"])
+    def resume_job(self, venv_name):
+        process = psutil.Process(SUBPROCESSES[venv_name]["PID"])
         process.resume()
-        SUBPROCESSES[venv_path]["status"] = "Resumed"
+        SUBPROCESSES[venv_name]["status"] = "Resumed"
         return "Resumed"
     
-    def complete_job(self, venv_path, result):
+    def complete_job(self, venv_name, result):
         self.send_message(result_queue, result)
-        # del SUBPROCESSES[venv_path]
-        subprocess.run(["rm", "-r", venv_path])
+        del SUBPROCESSES[venv_name]
+        subprocess.run(["rm", "-r", venv_name])
         os.kill(os.getpid(), signal.SIGTERM)
         exit()
     
@@ -101,4 +102,3 @@ class VirtualEnvironmentWorker:
         return json.dumps({"operation":"venv_metrics","metrics":metrics})
     
 
-vw = VirtualEnvironmentWorker()

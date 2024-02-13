@@ -29,11 +29,11 @@ class VirtualEnvironmentProvider:
             MessageBody=json.dumps(message)
         )
         vt = VenvTracker(
-            task_id=message["task_id"],
+            task_id=message["params"]["task_id"],
             status="Created"
         )
         vt.save()
-        return {"task_id":message["task_id"],"status":"Created"}
+        return {"task_id":message["params"]["task_id"],"status":"Created"}
     
     def delete_job(self, task_id):
         body = json.dumps({"task_id": task_id, "action":"delete"})

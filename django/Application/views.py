@@ -10,8 +10,8 @@ from uuid import uuid4
 class ExecuteJobs(APIView):
     def post(self, request, *args, **kwargs):
         data = request.data
-        data["task_id"] = str(uuid4())
-        needed_fields = {"task_id", "params"}
+        data["params"]["task_id"] = str(uuid4())
+        needed_fields = {"operation", "params"}
         assert set(data.keys()).issubset(needed_fields), "Fields missing"
         job = vp.create_job(data)
         if job["status"] == "Created":
