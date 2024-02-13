@@ -6,6 +6,9 @@ if [ "$1" == "django" ]; then
 elif [ "$1" == "worker" ]; then
     echo "Starting Worker Server"
     /usr/local/bin/python /code/worker/worker.py
+elif [ "$1" == "open" ]; then
+    echo "Starting Worker Server"
+    /bin/bash
 else
     echo "Server not specified, Exiting."
     exit 1

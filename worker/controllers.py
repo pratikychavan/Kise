@@ -7,7 +7,7 @@ import signal
 
 from worker.constants import sqs,result_queue, SUBPROCESSES
 
-class QueueManager:
+class VirtualEnvironmentWorker:
     def __init__(self):
         pass
     
@@ -28,11 +28,7 @@ class QueueManager:
             QueueUrl=queue["QueueUrl"], 
             ReceiptHandle=message["Messages"][0]["ReceiptHandle"]
         )
-
-class VirtualEnvironmentWorker:
-    def __init__(self):
-        self.qm = QueueManager()
-
+    
     def run_job(self, message):
         print(f"message: {message}")
         venv_path = message["task_id"]
@@ -44,10 +40,12 @@ class VirtualEnvironmentWorker:
         SUBPROCESSES[venv_path] = {"status": "Created"}
         activate_script = os.path.join(venv_path, "bin", "activate")
         python_interpreter = os.path.join(venv_path, "bin", "python")
+        task_env = os.environ.copy()
         subprocess.run(["bash", activate_script])
+        task_env["venv_path"] = venv_path
         p = subprocess.Popen(
             [python_interpreter, "worker/task.py"],
-            env={"venv_path":venv_path}
+            env=task_env
             )
         SUBPROCESSES[venv_path] = {
             "task_id": venv_path,    
@@ -78,7 +76,7 @@ class VirtualEnvironmentWorker:
         return "Resumed"
     
     def complete_job(self, venv_path, result):
-        self.qm.send_message(result_queue, result)
+        self.send_message(result_queue, result)
         # del SUBPROCESSES[venv_path]
         subprocess.run(["rm", "-r", venv_path])
         os.kill(os.getpid(), signal.SIGTERM)
@@ -101,3 +99,6 @@ class VirtualEnvironmentWorker:
                 "memory_utilization": process.memory_percent,
             })
         return json.dumps({"operation":"venv_metrics","metrics":metrics})
+    
+
+vw = VirtualEnvironmentWorker()

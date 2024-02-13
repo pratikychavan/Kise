@@ -1,3 +1,5 @@
 awscli
 boto3
 psutil
+jupyter
+nbconvert
