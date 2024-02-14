@@ -3,7 +3,6 @@ import venv
 import os
 import subprocess
 import psutil
-import signal
 
 from constants import sqs,result_queue, SUBPROCESSES
 
@@ -12,6 +11,8 @@ class VirtualEnvironmentWorker:
         pass
     
     def send_message(self, queue, message):
+        if message["status"] == "completed":
+            del SUBPROCESSES[message["task_id"]]
         sqs.send_message(
             QueueUrl=queue["QueueUrl"],
             MessageBody=json.dumps(message)
@@ -83,13 +84,7 @@ class VirtualEnvironmentWorker:
         process.resume()
         SUBPROCESSES[venv_name]["status"] = "Resumed"
         return "Resumed"
-    
-    def complete_job(self, venv_name, result):
-        self.send_message(result_queue, result)
-        del SUBPROCESSES[venv_name]
-        subprocess.run(["rm", "-r", venv_name])
-        os.kill(os.getpid(), signal.SIGTERM)
-        exit()
+
     
     def get_metrics(self):
         if not SUBPROCESSES:

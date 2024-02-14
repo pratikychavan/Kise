@@ -1,5 +1,6 @@
-from executor import vw
+from controllers import VirtualEnvironmentWorker
 
+vw = VirtualEnvironmentWorker()
 def play(data):
     vw.run_job(data)
 

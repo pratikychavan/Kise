@@ -3,6 +3,7 @@ import os
 import json
 import subprocess
 from controllers import VirtualEnvironmentWorker
+from constants import result_queue
 print("imports done")
 
 running_task_pid = os.getpid()
@@ -38,10 +39,12 @@ print("py file done")
 out_buffer.close()
 print("send to complete job")
 
-VirtualEnvironmentWorker().complete_job(
-    venv_name=venv_name, 
-    result={
+subprocess.run(["rm", "-rf", f"/code/worker/{venv_name}"])
+
+result={
         "task_id":venv_name, 
         "result":"completed"
         }
-    )
+VirtualEnvironmentWorker().send_message(result_queue, result)
+print("sent to queue")
+exit()
