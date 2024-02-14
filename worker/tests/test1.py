@@ -14,4 +14,9 @@ data = {
 
 play(data)
 
-# "params":{"task_id": "test_task_id","gitea_url": "https://nimbus-dev-gitea.solytics.us/balgopal/ClimateRisk.git"}
+# {
+#     "operation": "some testing operation",
+#     "params": {
+#         "gitea_url": "https://nimbus-dev-gitea.solytics.us/balgopal/ClimateRisk.git"
+#     }
+# }
