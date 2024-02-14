@@ -43,10 +43,13 @@ class VirtualEnvironmentWorker:
         task_env = os.environ.copy()
         subprocess.run(["bash", activate_script])
         task_env["venv_name"] = venv_name
+        task_env["params"] = message["params"]
+        subprocess.run(["mkdir", "-p", f"/code/outputs/{venv_name}"])
+        task_output_buffer = open(f"/code/outputs/{venv_name}/task_exec.log", "w")
         p = subprocess.Popen(
-            [python_interpreter, "worker/task.py"],
+            [python_interpreter, "/code/worker/task.py"],
             env=task_env,
-            stdout=f"/code/outputs/{venv_name}/task_exec.log"
+            stdout=task_output_buffer
             )
         SUBPROCESSES[venv_name] = {
             "task_id": venv_name,    
