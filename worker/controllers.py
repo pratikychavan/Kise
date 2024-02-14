@@ -30,36 +30,41 @@ class VirtualEnvironmentWorker:
         )
     
     def run_job(self, message):
-        print(f"message: {message}")
-        venv_name = message["params"]["task_id"]
-        venv.create(
-            env_dir=f"/code/worker/{venv_name}", 
-            with_pip=True,
-            system_site_packages=True
-        )
-        SUBPROCESSES[venv_name] = {"status": "Created"}
-        activate_script = os.path.join(venv_name, "bin", "activate")
-        python_interpreter = os.path.join(venv_name, "bin", "python")
-        task_env = os.environ.copy()
-        subprocess.run(["bash", activate_script])
-        task_env["venv_name"] = venv_name
-        task_env["params"] = message["params"]
-        subprocess.run(["mkdir", "-p", f"/code/outputs/{venv_name}"])
-        task_output_buffer = open(f"/code/outputs/{venv_name}/task_exec.log", "w")
-        p = subprocess.Popen(
-            [python_interpreter, "/code/worker/task.py"],
-            env=task_env,
-            stdout=task_output_buffer
+        try:
+            print(f"message: {message}")
+            venv_name = message["params"]["task_id"]
+            venv.create(
+                env_dir=f"/code/worker/{venv_name}", 
+                with_pip=True,
+                system_site_packages=True
             )
-        SUBPROCESSES[venv_name] = {
-            "task_id": venv_name,    
-            "cpu_utilization": 0,
-            "memory_utilization": 0,
-            "status": "Running", 
-            "PID":p.pid
-            }
-        return "Created"
-    
+            SUBPROCESSES[venv_name] = {"status": "Created"}
+            activate_script = f"/code/worker/{venv_name}/bin/activate"
+            python_interpreter = f"/code/worker/{venv_name}/bin/python"
+            subprocess.run(["bash", activate_script])
+            task_env = os.environ.copy()
+            task_env["venv_name"] = venv_name
+            task_env["params"] = json.dumps(message["params"])
+            subprocess.run(["mkdir", "-p", f"/code/outputs/{venv_name}"])
+            task_output_buffer = open(f"/code/outputs/{venv_name}/task_exec.log", "w")
+            p = subprocess.Popen(
+                [python_interpreter, "/code/worker/task.py"],
+                env=task_env,
+                stdout=task_output_buffer
+                )
+            SUBPROCESSES[venv_name] = {
+                "task_id": venv_name,    
+                "cpu_utilization": 0,
+                "memory_utilization": 0,
+                "status": "Running", 
+                "PID":p.pid
+                }
+            return "Created"
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
+            print(e)
+
     def delete_job(self, venv_name):
         process = psutil.Process(SUBPROCESSES[venv_name]["PID"])
         process.kill()
