@@ -22,8 +22,8 @@ class VirtualEnvironmentProvider:
         pass
     
     def create_job(self, message):
-        if not VenvTracker.objects.all().count() < self.concurrency:
-            raise OverflowError("Max Concurrency Achieved.")
+        # if not VenvTracker.objects.all().count() < self.concurrency:
+        #     raise OverflowError("Max Concurrency Achieved.")
         sqs.send_message(
             QueueUrl=task_queue["QueueUrl"],
             MessageBody=json.dumps(message)
@@ -69,23 +69,26 @@ def debug_task():
             MaxNumberOfMessages=1
             )
         try:
-            body = json.loads(message['Messages'][0]['Body'])
-            if body.get("operation") and body.get("operation") == "venv_metrics" and body.get("metrics"):
-                for metric in body["metrics"]:
-                    vp.save_metrics(metric)
-            elif body.get("operation") and body.get("operation") == "task_update" and body.get("updates"):
-                vp.save_metrics(body["updates"])
-                tro = SomeTaskReview.objects.get(task_id=body["updates"]["task_id"])
-                tro.status = body["updates"]["status"]
-                tro.save()
-            elif body.get("operation") not in ["venv_metrics", "task_update", None] and body.get("results"):
-                tro = SomeTaskReview.objects.get(task_id=body["task_id"])
-                for k,v in body["results"].items():
-                    setattr(tro, k, v)
-                tro.save()
-            else:
-                print(f"invalid message: {body}")
-                send_mail_to_admin(body)
+            if message.get("Messages"):
+                body = json.loads(message['Messages'][0]['Body'])
+                if body.get("operation") and body.get("operation") == "venv_metrics" and body.get("metrics"):
+                    for metric in body["metrics"]:
+                        vp.save_metrics(metric)
+                elif body.get("operation") and body.get("operation") == "task_update" and body.get("updates"):
+                    vp.save_metrics(body["updates"])
+                    tro = SomeTaskReview.objects.get(task_id=body["updates"]["task_id"])
+                    tro.status = body["updates"]["status"]
+                    tro.save()
+                elif body.get("operation") not in ["venv_metrics", "task_update", None] and body.get("results"):
+                    VenvTracker.objects.get(task_id=body["task_id"]).delete()
+                    tro = SomeTaskReview.objects.get(task_id=body["task_id"])
+                    for k,v in body["results"].items():
+                        setattr(tro, k, v)
+                    tro.save()
+                else:
+                    print(f"invalid message: {body}")
+                    send_mail_to_admin(body)
         except Exception as e:
             print(f"Something went wrong: {e}")
             send_mail_to_admin(f"{e}")
+

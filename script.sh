@@ -2,7 +2,8 @@
 echo $1
 if [ "$1" == "django" ]; then
     echo "Starting Django Server"
-    /usr/local/bin/python /code/django/manage.py runserver 0.0.0.0:5000
+    /usr/local/bin/python /code/django/manage.py runserver 0.0.0.0:5000 &&
+    /usr/local/bin/python -c "from Application.venv_controller import debug_task; debug_task()" 
 elif [ "$1" == "worker" ]; then
     echo "Starting Worker Server"
     /usr/local/bin/python /code/worker/executor.py
