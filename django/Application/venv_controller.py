@@ -1,10 +1,6 @@
 import boto3
 import json
-import venv
 import os
-import subprocess
-import signal
-import time
 
 from Application.serializers import SomeTaskSerializer, VenvTrackerSerializer
 from Application.models import SomeTaskReview, VenvTracker
@@ -29,11 +25,11 @@ class VirtualEnvironmentProvider:
             MessageBody=json.dumps(message)
         )
         vt = VenvTracker(
-            task_id=message["params"]["task_id"],
+            task_id=message["task_id"],
             status="Created"
         )
         vt.save()
-        return {"task_id":message["params"]["task_id"],"status":"Created"}
+        return {"task_id":message["task_id"],"status":"Created"}
     
     def delete_job(self, task_id):
         body = json.dumps({"task_id": task_id, "action":"delete"})
@@ -71,6 +67,7 @@ def debug_task():
         try:
             if message.get("Messages"):
                 body = json.loads(message['Messages'][0]['Body'])
+                print(body)
                 if body.get("operation") and body.get("operation") == "venv_metrics" and body.get("metrics"):
                     for metric in body["metrics"]:
                         vp.save_metrics(metric)
@@ -80,7 +77,8 @@ def debug_task():
                     tro.status = body["updates"]["status"]
                     tro.save()
                 elif body.get("operation") not in ["venv_metrics", "task_update", None] and body.get("results"):
-                    VenvTracker.objects.get(task_id=body["task_id"]).delete()
+                    if body.get("action") in ["completed", "delete"]:
+                        VenvTracker.objects.get(task_id=body["task_id"]).delete()
                     tro = SomeTaskReview.objects.get(task_id=body["task_id"])
                     for k,v in body["results"].items():
                         setattr(tro, k, v)
