@@ -75,7 +75,7 @@ def listen_to_sqs():
                         QueueUrl=control_queue_url, ReceiptHandle=control_receipt_handle
                     )
                     control_process = psutil.Process(
-                        active_processes[data["task_id"]]["PID"]
+                        active_processes[data["task_id"]]["pid"]
                     )
                     if data["action"] == "delete":
                         control_process.kill()
