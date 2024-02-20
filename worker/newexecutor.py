@@ -117,5 +117,5 @@ def listen_to_sqs():
             print(f"Error: {e}")
 
 
-if __name__ == "__main__":
+if os.environ.get("ARCHITECTURE") == "queue":
     listen_to_sqs()
