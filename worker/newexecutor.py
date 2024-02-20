@@ -11,7 +11,7 @@ from constants import (
     control_queue,
     result_queue,
 )
-from controllers import execute_task
+from controllers import execute_task, ProcessActions
 
 def get_process_metrics(active_processes):
     tasks = []
@@ -33,7 +33,7 @@ def listen_to_sqs():
     task_queue_url = task_queue["QueueUrl"]
     control_queue_url = control_queue["QueueUrl"]
     result_queue_url = result_queue["QueueUrl"]
-    concurrency = os.environ.get("CONCURRENCY", 3)
+    concurrency = int(os.environ.get("CONCURRENCY", 3))
     manager = multiprocessing.Manager()
     active_processes = manager.dict()
 
@@ -41,7 +41,7 @@ def listen_to_sqs():
         try:
             time.sleep(5)
             sqs.send_message(
-                QueueUrl=result_queue,
+                QueueUrl=result_queue_url,
                 MessageBody=json.dumps(get_process_metrics(active_processes))
             )
             print(active_processes)
@@ -93,18 +93,10 @@ def listen_to_sqs():
                     sqs.delete_message(
                         QueueUrl=control_queue_url, ReceiptHandle=control_receipt_handle
                     )
-                    control_process = psutil.Process(
-                        active_processes[data["task_id"]]["pid"]
-                    )
-                    if data["action"] == "delete":
-                        control_process.kill()
-                        del active_processes[data["task_id"]]
-                    elif data["action"] == "suspend":
-                        control_process.suspend()
-                        active_processes[data["task_id"]]["status"] = "Suspended"
-                    elif data["action"] == "resume":
-                        control_process.resume()
-                        active_processes[data["task_id"]]["status"] = "Resumed"
+                    active_processes = ProcessActions(
+                        data=data,
+                        active_processes=active_processes
+                    ).action_map[data["action"]]()
                 elif data["action"] not in ["delete", "suspend", "resume"]:
                     control_receipt_handle = control_message["ReceiptHandle"]
                     sqs.delete_message(

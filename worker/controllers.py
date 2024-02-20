@@ -1,6 +1,7 @@
 import os
 import venv
 import json
+import psutil
 import pygit2
 import shutil
 import traceback
@@ -78,3 +79,29 @@ def execute_task(data, active_processes):
         del active_processes[task_id]
         print(f"Failed task: {task_id}, Freeing system resources and exiting.")
         exit()
+
+class ProcessActions:
+    def __init__(self, message, active_processes):
+        self.message = message
+        self.active_processes = active_processes
+        self.process = psutil.Process(self.active_processes[self.message["task_id"]]["pid"])
+        self.action_map = {
+            "delete": self.delete_process,
+            "suspend": self.suspend_process,
+            "resume": self.resume_process,
+        }
+    
+    def delete_process(self):
+        self.process.kill()
+        del self.active_processes[self.message["task_id"]]
+        return self.active_processes
+    
+    def suspend_process(self):
+        self.process.suspend()
+        self.active_processes[self.message["task_id"]]["status"] = "Suspended"
+        return self.active_processes
+    
+    def resume_process(self):
+        self.process.resume()
+        self.active_processes[self.message["task_id"]]["status"] = "Resumed"
+        return self.active_processes
