@@ -13,6 +13,21 @@ from constants import (
 )
 from controllers import execute_task
 
+def get_process_metrics(active_processes):
+    tasks = []
+    for task in active_processes:
+        process_monitor = psutil.Process(task["pid"])
+        tasks.append({
+            "pid": process_monitor.pid,
+            "created_at": datetime.fromtimestamp(
+                process_monitor.create_time()
+            ).strftime("%Y-%m-%d %H:%M:%S"),
+            "status": process_monitor.status(),
+            "cpu_utilization": process_monitor.cpu_percent(),
+            "memory_utilization": process_monitor.memory_percent(),
+            "message": task["message_body"],
+        })
+    return {"operation":"venv_metrics","metrics":tasks}
 
 def listen_to_sqs():
     task_queue_url = task_queue["QueueUrl"]
@@ -25,6 +40,10 @@ def listen_to_sqs():
     while True:
         try:
             time.sleep(5)
+            sqs.send_message(
+                QueueUrl=result_queue,
+                MessageBody=json.dumps(get_process_metrics(active_processes))
+            )
             print(active_processes)
             task_response = sqs.receive_message(
                 QueueUrl=task_queue_url, MaxNumberOfMessages=1
