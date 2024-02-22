@@ -2,12 +2,12 @@ import os
 import boto3
 
 USER_HOME = os.path.expanduser("~")
-APP_NAME = os.environ.get("APP_NAME", None)
+APP_NAME = os.environ.get("APP_NAME", "Nimbus")
 APP_HOME = os.path.join(USER_HOME, APP_NAME)
 
-TASK_QUEUE_NAME = os.environ.get("TASK_QUEUE_NAME",None)
-CONTROL_QUEUE_NAME = os.environ.get("CONTROL_QUEUE_NAME",None)
-RESULT_QUEUE_NAME = os.environ.get("RESULT_QUEUE_NAME",None)
+TASK_QUEUE_NAME = os.environ.get("TASK_QUEUE_NAME","EE-Task-Queue")
+CONTROL_QUEUE_NAME = os.environ.get("CONTROL_QUEUE_NAME","EE-Control-Queue")
+RESULT_QUEUE_NAME = os.environ.get("RESULT_QUEUE_NAME","EE-Result-Queue")
 
 sqs = boto3.client("sqs")
 

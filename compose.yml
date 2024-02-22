@@ -31,6 +31,31 @@ services:
       - worker
     networks:
       - djangonetwork
+    
+  rabbitmq:
+    image: rabbitmq:3.12-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    networks:
+      - djangonetwork
+  
+  db:
+    container_name: void_db
+    image: postgres:latest
+    restart: always
+    environment:
+      - POSTGRES_DB=void
+      - POSTGRES_USER=faceless
+      - POSTGRES_PASSWORD=chronosphere
+    ports:
+      - 5432:5432
+    networks:
+      - djangonetwork
 
 networks:
   djangonetwork:

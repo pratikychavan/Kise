@@ -6,6 +6,8 @@ import pygit2
 import shutil
 import traceback
 import subprocess
+import multiprocessing
+from datetime import datetime
 
 from constants import sqs, result_queue, APP_HOME
 
@@ -105,3 +107,83 @@ class ProcessActions:
         self.process.resume()
         self.active_processes[self.message["task_id"]]["status"] = "Resumed"
         return self.active_processes
+
+def get_process_metrics(active_processes):
+    tasks = []
+    for task in active_processes:
+        process_monitor = psutil.Process(active_processes[task]["pid"])
+        tasks.append({
+            "pid": process_monitor.pid,
+            "created_at": datetime.fromtimestamp(
+                process_monitor.create_time()
+            ).strftime("%Y-%m-%d %H:%M:%S"),
+            "status": process_monitor.status(),
+            "cpu_utilization": process_monitor.cpu_percent(),
+            "memory_utilization": process_monitor.memory_percent(),
+            "message": active_processes[task]["message"],
+        })
+    return {"operation":"venv_metrics","metrics":tasks}
+
+def process_task_messages(
+        task_response:dict, 
+        task_queue_url:str, 
+        active_processes:dict, 
+        result_queue_url:str
+    ):
+    message = task_response["Messages"][0]
+    message_body = json.loads(message["Body"])
+    receipt_handle = message["ReceiptHandle"]
+    sqs.delete_message(
+        QueueUrl=task_queue_url, ReceiptHandle=receipt_handle
+    )
+    process = multiprocessing.Process(
+        target=execute_task, args=(message_body, active_processes)
+    )
+    process.start()
+    process_monitor = psutil.Process(process.pid)
+    active_processes[message_body["task_id"]] = {
+        "pid": process_monitor.pid,
+        "created_at": datetime.fromtimestamp(
+            process_monitor.create_time()
+        ).strftime("%Y-%m-%d %H:%M:%S"),
+        "status": process_monitor.status(),
+        "cpu_utilization": process_monitor.cpu_percent(),
+        "memory_utilization": process_monitor.memory_percent(),
+        "message": message_body,
+    }
+    sqs.send_message(
+        QueueUrl=result_queue_url,
+        MessageBody=json.dumps(
+            active_processes[message_body["task_id"]]
+        ),
+    )
+    return active_processes
+
+def process_control_message(
+    control_response:dict,
+    active_processes:dict,
+    control_queue_url:dict
+):
+    control_message = control_response["Messages"][0]
+    data = json.loads(control_message["Body"])
+    if data["task_id"] in active_processes and data["action"] in [
+        "delete",
+        "suspend",
+        "resume",
+    ]:
+        control_receipt_handle = control_message["ReceiptHandle"]
+        sqs.delete_message(
+            QueueUrl=control_queue_url, ReceiptHandle=control_receipt_handle
+        )
+        active_processes = ProcessActions(
+            data=data,
+            active_processes=active_processes
+        ).action_map[data["action"]]()
+    elif data["action"] not in ["delete", "suspend", "resume"]:
+        control_receipt_handle = control_message["ReceiptHandle"]
+        sqs.delete_message(
+            QueueUrl=control_queue_url, ReceiptHandle=control_receipt_handle
+        )
+    else:
+        pass
+    return active_processes

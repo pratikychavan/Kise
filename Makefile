@@ -21,3 +21,6 @@ images:
 db:
 	python /code/django/manage.py makemigrations
 	@python /code/django/manage.py migrate
+
+binary:
+	pyinstaller --onefile worker/newexecutor.py -p worker
