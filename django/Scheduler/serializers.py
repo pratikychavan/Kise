@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from Application.models import SomeTaskReview, VenvTracker
+from Scheduler.models import SomeTaskReview, VenvTracker
 
 class SomeTaskSerializer(serializers.ModelSerializer):
     class Meta:

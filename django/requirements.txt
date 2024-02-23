@@ -1,4 +1,5 @@
 django-rest-framework
+djangorestframework-simplejwt
 awscli
 boto3
 psycopg2

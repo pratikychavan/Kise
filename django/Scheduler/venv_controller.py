@@ -2,8 +2,8 @@ import boto3
 import json
 import os
 
-from Application.serializers import SomeTaskSerializer, VenvTrackerSerializer
-from Application.models import SomeTaskReview, VenvTracker
+from Scheduler.serializers import SomeTaskSerializer, VenvTrackerSerializer
+from Scheduler.models import SomeTaskReview, VenvTracker
 # task_queue = "EE-Task-Queue"
 # control_queue = "EE-Control-Queue"
 

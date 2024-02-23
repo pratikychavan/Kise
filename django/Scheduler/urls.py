@@ -1,5 +1,5 @@
 from django.urls import path
-from Application import views
+from Scheduler import views
 
 urlpatterns = [
     path("execute-job", views.ExecuteJobs.as_view(), name="execute-job"),

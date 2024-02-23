@@ -2,8 +2,8 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from Application.models import VenvTracker
-from Application.venv_controller import vp
+from Scheduler.models import VenvTracker
+from Scheduler.venv_controller import vp
 from uuid import uuid4
 # Create your views here.
 
