@@ -3,8 +3,8 @@ void:
 
 d:
 	docker ps
+	@docker exec -it void_django python manage.py migrate
 	@docker exec -it void_django bash
-
 w:
 	docker ps
 	@docker exec -it void_worker bash

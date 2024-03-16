@@ -2,10 +2,19 @@ from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from Scheduler.models import VenvTracker
+from django.contrib.auth.models import User
+
 from Scheduler.venv_controller import vp
+from Scheduler.lepus import QueueManager
 from uuid import uuid4
 # Create your views here.
+
+
+class RegisterWorker(APIView):
+    def post(self, request):
+        data = request.data
+        user = User.objects.get(username=data["username"])
+        
 
 class ExecuteJobs(APIView):
     def post(self, request, *args, **kwargs):

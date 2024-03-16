@@ -2,8 +2,8 @@ import boto3
 import json
 import os
 
-from Scheduler.serializers import SomeTaskSerializer, VenvTrackerSerializer
-from Scheduler.models import SomeTaskReview, VenvTracker
+from Scheduler.serializers import VirtualEnvironmentsSerializer
+from Scheduler.models import Task, VirtualEnvironments
 # task_queue = "EE-Task-Queue"
 # control_queue = "EE-Control-Queue"
 
@@ -18,13 +18,13 @@ class VirtualEnvironmentProvider:
         pass
     
     def create_job(self, message):
-        # if not VenvTracker.objects.all().count() < self.concurrency:
+        # if not VirtualEnvironments.objects.all().count() < self.concurrency:
         #     raise OverflowError("Max Concurrency Achieved.")
         sqs.send_message(
             QueueUrl=task_queue["QueueUrl"],
             MessageBody=json.dumps(message)
         )
-        vt = VenvTracker(
+        vt = VirtualEnvironments(
             task_id=message["task_id"],
             status="Created"
         )
@@ -37,18 +37,18 @@ class VirtualEnvironmentProvider:
             QueueUrl=control_queue["QueueUrl"],
             MessageBody=body
         )
-        vt = VenvTracker.objects.filter(task_id=task_id)
+        vt = VirtualEnvironments.objects.filter(task_id=task_id)
         if vt.exists():
             vt.delete()
         return {"task_id":task_id, "status":"Deletion in progress"}
     
     def list_jobs(self):
-        vts = VenvTracker.objects.all()
-        serializer = VenvTrackerSerializer(vts, many=True)
+        vts = VirtualEnvironments.objects.all()
+        serializer = VirtualEnvironmentsSerializer(vts, many=True)
         return serializer.data
     
     def save_metrics(self, metrics):
-        vt, new_vt = VenvTracker.objects.get_or_create(task_id=metrics['task_id'])
+        vt, new_vt = VirtualEnvironments.objects.get_or_create(task_id=metrics['task_id'])
         for k,v in metrics.items():
             setattr(vt, k, v)
         vt.save()
@@ -73,13 +73,13 @@ def debug_task():
                         vp.save_metrics(metric)
                 elif body.get("operation") and body.get("operation") == "task_update" and body.get("updates"):
                     vp.save_metrics(body["updates"])
-                    tro = SomeTaskReview.objects.get(task_id=body["updates"]["task_id"])
+                    tro = Task.objects.get(task_id=body["updates"]["task_id"])
                     tro.status = body["updates"]["status"]
                     tro.save()
                 elif body.get("operation") not in ["venv_metrics", "task_update", None] and body.get("results"):
                     if body.get("action") in ["completed", "delete"]:
-                        VenvTracker.objects.get(task_id=body["task_id"]).delete()
-                    tro = SomeTaskReview.objects.get(task_id=body["task_id"])
+                        VirtualEnvironments.objects.get(task_id=body["task_id"]).delete()
+                    tro = Task.objects.get(task_id=body["task_id"])
                     for k,v in body["results"].items():
                         setattr(tro, k, v)
                     tro.save()

@@ -1,13 +1,25 @@
 from rest_framework import serializers
-from Scheduler.models import SomeTaskReview, VenvTracker
+from Scheduler.models import Task, VirtualEnvironments
+
+class GeneralSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = None
+        fields = None
+
+
+def get_my_serializer(model, fields):
+        GeneralSerializer.Meta.model = model
+        GeneralSerializer.Meta.fields = fields
+        return GeneralSerializer
+
 
 class SomeTaskSerializer(serializers.ModelSerializer):
     class Meta:
-        model = SomeTaskReview
+        model = Task
         exclude = ["created_at", "updated_at"]
         
 
-class VenvTrackerSerializer(serializers.ModelSerializer):
+class VirtualEnvironmentsSerializer(serializers.ModelSerializer):
     class Meta:
-        model = VenvTracker
+        model = VirtualEnvironments
         fields = "__all__"

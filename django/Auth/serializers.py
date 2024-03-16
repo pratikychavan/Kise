@@ -5,6 +5,7 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from django.contrib.auth.models import User
 
+from .utilities import send_password_reset_email
 
 class RegisterSerializer(serializers.ModelSerializer):
     username = serializers.CharField()
@@ -59,8 +60,7 @@ class PasswordResetSerializer(serializers.Serializer):
 
     def save(self):
         user = User.objects.get(email=self.validated_data['email'])
-        # Implement logic to send password reset email here
-        # You can use Django's built-in PasswordResetTokenGenerator to generate a token
+        send_password_reset_email(user)
 
 class PasswordResetConfirmSerializer(serializers.Serializer):
     uidb64 = serializers.CharField()

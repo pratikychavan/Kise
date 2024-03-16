@@ -1,12 +1,9 @@
 {
     "RabbitMQClient": {
-        "host": "localhost",
+        "host": "rabbitmq",
         "port": 5672,
         "username": "guest",
         "password": "guest",
-        "exchange": "e1",
-        "task_queue": "EE-Task-Queue",
-        "control_queue": "EE-Control-Queue",
-        "result_queue": "EE-Result-Queue"
+        "exchange": "nimbus"
     }
 }
