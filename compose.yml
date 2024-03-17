@@ -1,36 +1,36 @@
 version: "3"
 services:
-  void_django:
-    image: voiddjango
-    build: 
-      context: .
-      args:
-        - server=django
-    working_dir: /code/django
-    container_name: void_django
-    ports:
-      - "5000:5000"
-    volumes:
-      - .:/code
-    command:
-      - django
-    networks:
-      - djangonetwork
+  # void_django:
+  #   image: voiddjango
+  #   build: 
+  #     context: .
+  #     args:
+  #       - server=django
+  #   working_dir: /code/django
+  #   container_name: void_django
+  #   ports:
+  #     - "5000:5000"
+  #   volumes:
+  #     - .:/code
+  #   command:
+  #     - django
+  #   networks:
+  #     - djangonetwork
 
-  void_worker:
-    image: voidworker
-    build: 
-      context: .
-      args:
-        - server=worker
-    working_dir: /code/worker
-    container_name: void_worker
-    volumes:
-      - .:/code
-    command:
-      - worker
-    networks:
-      - djangonetwork
+  # void_worker:
+  #   image: voidworker
+  #   build: 
+  #     context: .
+  #     args:
+  #       - server=worker
+  #   working_dir: /code/worker
+  #   container_name: void_worker
+  #   volumes:
+  #     - .:/code
+  #   command:
+  #     - worker
+  #   networks:
+  #     - djangonetwork
     
   rabbitmq:
     image: rabbitmq:3.12-management
@@ -44,18 +44,18 @@ services:
     networks:
       - djangonetwork
   
-  db:
-    container_name: void_db
-    image: postgres:latest
-    restart: always
-    environment:
-      - POSTGRES_DB=void
-      - POSTGRES_USER=faceless
-      - POSTGRES_PASSWORD=chronosphere
-    ports:
-      - 5432:5432
-    networks:
-      - djangonetwork
+  # db:
+  #   container_name: void_db
+  #   image: postgres:latest
+  #   restart: always
+  #   environment:
+  #     - POSTGRES_DB=void
+  #     - POSTGRES_USER=faceless
+  #     - POSTGRES_PASSWORD=chronosphere
+  #   ports:
+  #     - 5432:5432
+  #   networks:
+  #     - djangonetwork
 
 networks:
   djangonetwork:
