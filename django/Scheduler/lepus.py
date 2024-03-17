@@ -18,27 +18,104 @@ class RabbitMQClient(traitlets.config.Configurable):
         self._connection = None
         self._channel = None
 
-    def connect(self):
-        credentials = pika.PlainCredentials(username=self.username, password=self.password)
+    def create_connection(self):
+        credentials = pika.PlainCredentials(
+            username=self.username, 
+            password=self.password
+            )
         parameters = pika.ConnectionParameters(
-            host=self.host, port=self.port, credentials=credentials
+            host=self.host, 
+            port=self.port, 
+            credentials=credentials
         )
         self._connection = pika.BlockingConnection(parameters)
-        self._channel = self._connection.channel()
-
-    def setup_queue(self, queue_name, username):
-        self.connect()
-        exchange = username if username else self.exchange
-        self._channel.exchange_declare(exchange=exchange, exchange_type="direct")
-        self._channel.queue_declare(queue=queue_name)
-        self._channel.queue_bind(exchange=exchange, queue=queue_name)
     
+    def create_channel(self):
+        self._channel = self._connection.channel()
+    
+    def check_channel(self):
+        return self._channel.is_open if self._channel else False
+    
+    def open_channel(self):
+        self._channel.open() if self.check_channel() else self.create_channel()
+    
+    def close_channel(self):
+        self._channel.close() if self._channel else ""
+    
+    def requires_channel(self, func):
+        def wrapper(*args, **kwargs):
+            self.open_channel()
+            result = func(*args, **kwargs)
+            self.close_channel()
+            return result
+        return wrapper
+    
+    # Exchange Operations
+    @requires_channel
+    def exchange_setup(self, username=False):
+        exchange = username if username else self.exchange
+        self._channel.exchange_declare(
+            exchange=exchange, 
+            durable=True, 
+            exchange_type="direct"
+            )
+    
+    @requires_channel
+    def bind_exchanges(self, **kwargs):
+        """
+        Bind an exchange to another exchange.
+
+        Parameters:	
+            destination (str) - The destination exchange to bind
+            source (str) - The source exchange to bind to
+            routing_key (str) - The routing key to bind on
+            arguments (dict) - Custom key/value pair arguments for the binding
+            callback (callable) - callback(pika.frame.Method) for method Exchange.BindOk
+        
+        Raises:	ValueError 
+        """
+        self._channel.exchange_bind(**kwargs)
+    
+    @requires_channel
+    def delete_exchanges(self, exchange, force=False):
+        self._channel.exchange_delete(exchange=exchange, if_unused=force)
+    
+    @requires_channel
+    def unbind_exchange(self, **kwargs):
+        """
+        Unbind an exchange from another exchange.
+
+        Parameters:	
+            destination (str) - The destination exchange to unbind
+            source (str) - The source exchange to unbind from
+            routing_key (str) - The routing key to unbind
+            arguments (dict) - Custom key/value pair arguments for the binding
+            callback (callable) - callback(pika.frame.Method) for method Exchange.UnbindOk
+        Raises: ValueError 
+        """
+        self._channel.exchange_unbind(**kwargs)
+    
+    # Queue Operations
+    @requires_channel
+    def create_queue(self, queue_name, exchange):
+        self._channel.queue_declare(queue=queue_name, durable=True)
+        self._channel.queue_bind(exchange=exchange, queue=queue_name)
+        return queue_name
+    
+    @requires_channel
+    def purge_queue(self, queue_name):
+        self._channel.queue_purge(queue=queue_name)
+    
+    @requires_channel
+    def delete_queue(self, queue_name, force=False):
+        self._channel.queue_delete(queue=queue_name, if_empty=force)
+    
+    @requires_channel
     def send_message(self, message, queue_name):
-        self.connect()
         self._channel.basic_publish(exchange=self.exchange, routing_key=queue_name, body=message)
     
+    @requires_channel
     def receive_message(self, queue_name):
-        self.connect()
         method, properties, body = self._channel.basic_get(queue=queue_name)
         self._channel.basic_ack(method.delivery_tag)
         return body.decode('utf-8')
@@ -60,7 +137,7 @@ class QueueManager:
         
         self.c = traitlets.config.JSONFileConfigLoader(QUEUE_CONFIG_PATH).load_config()
         self.rmq = RabbitMQClient(config=self.c)
-        if execution_mode == "Remote":
+        if self.execution_mode == "Remote":
         
             self.task_queue += f"-{self.user_obj.username}-{Queues.objects.filter(user_id=self.user_obj.id, queue_type='Task').count()}"
             Queues.objects.create(
@@ -75,17 +152,10 @@ class QueueManager:
                 queue_name=self.control_queue,
                 queue_type="Control"
             )
-        
-            self.result_queue += f"-{self.user_obj.username}-{Queues.objects.filter(user_id=self.user_obj.id, queue_type='Result').count()}"
-            Queues.objects.create(
-                user=self.user_obj,
-                queue_name=self.result_queue,
-                queue_type="Result"
-            )
         pass
         
         def get_all_queues(self):
-            queues = Queues.objects.filter(user=self.user_obj)
+            queues = Queues.objects.filter(user_id=self.user_obj.id)
             serializer = get_my_serializer(
                 model=Queues,
                 fields="__all__"
@@ -93,23 +163,12 @@ class QueueManager:
             return serializer.data
         
         def create_queues(self):
-            pass
+            if self.execution_mode == "Remote":
+                self.rmq.setup_queue(self.task_queue, self.user_obj.username)
+                self.rmq.setup_queue(self.control_queue, self.user_obj.username)
+            else:
+                pass
+        
+        def delete_queue(self, queue_name):
+            queue_delete
 
-
-# Example usage:
-# config = {
-#     "RabbitMQClient": {
-#         "host": "localhost",
-#         "port": 5672,
-#         "username": "guest",
-#         "password": "guest",
-#         "exchange": "e1",
-#         "task_queue": "EE-Task-Queue"
-#         "control_queue": "EE-Control-Queue"
-#         "result_queue": "EE-Result-Queue"
-#     }
-# }
-# client = RabbitMQClient(config=config)
-# client.on_start()
-# # Do your RabbitMQ operations here
-# client.on_stop()
