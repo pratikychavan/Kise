@@ -8,8 +8,38 @@ from constants import (
     task_queue,
     control_queue,
     result_queue,
+    FK,
+    DJANGO_SERVER_URL
 )
 from controllers import process_control_message, process_task_messages, get_process_metrics
+import argparse
+from cryptography.fernet import Fernet
+import requests
+
+
+
+parser = argparse.ArgumentParser(description="Authenticate user with username and password")
+parser.add_argument("username", help="Username for authentication")
+parser.add_argument("password", help="Password for authentication")
+parser.add_argument("workername", help="Worker Name to display in Nimbus")
+
+args = parser.parse_args()
+
+
+def encrypt_password(password):
+    cipher_suite = Fernet(FK)
+    encrypted_password = cipher_suite.encrypt(password.encode())
+    return encrypted_password
+
+def init_worker(args):
+    payload = {
+        "username": args.username,
+        "password": encrypt_password(args.password),
+        "workername": args.workername
+    }
+    response = requests.post(url=f"{DJANGO_SERVER_URL}/register-worker", json=payload)
+    if response.status_code != 200:
+        raise OSError("Unable to register worker. Please contanct administrator.")
 
 def listen_to_sqs():
     task_queue_url = task_queue["QueueUrl"]
@@ -60,3 +90,22 @@ def listen_to_sqs():
 
 if os.environ.get("ARCHITECTURE","queue") == "queue":
     listen_to_sqs()
+
+
+    """
+    
+    mail-server
+    
+    
+    Filterable
+    - Username
+    - # Organisation - Only superadmin
+    - # Queue - Not needed for event-driven
+    - Worker
+    - Task
+    
+    Metrics
+    - Timestamp
+    - Memory
+    - CPU
+    """

@@ -2,8 +2,13 @@ import traitlets
 import pika
 from Scheduler.models import Queues
 from Scheduler.serializers import get_my_serializer
-from Scheduler.constants import QUEUE_CONFIG_PATH, APP_NAME
+from Scheduler.constants import QUEUE_CONFIG_PATH, APP_NAME, FK
+from cryptography.fernet import Fernet
 
+def decrypt_password(encrypted_password):
+    cipher_suite = Fernet(FK)
+    decrypted_password = cipher_suite.decrypt(encrypted_password).decode()
+    return decrypted_password
 
 class RabbitMQClient(traitlets.config.Configurable):
     host = traitlets.Unicode("localhost", help="RabbitMQ server host").tag(config=True)
@@ -117,6 +122,11 @@ class RabbitMQClient(traitlets.config.Configurable):
         self._channel.basic_ack(method.delivery_tag)
         return body.decode('utf-8')
     
+    @requires_channel
+    def get_message_count(self, queue_name):
+        queue = self._channel.queue_declare(queue=queue_name, passive=True)
+        return queue.method.message_count
+    
     def close_connection(self):
         if self._connection and self._connection.is_open:
             self._connection.close()
@@ -137,14 +147,14 @@ class QueueManager:
         if self.execution_mode == "Remote":
         
             self.task_queue += f"-{self.user_obj.username}-{Queues.objects.filter(user_id=self.user_obj.id, queue_type='Task').count()}"
-            Queues.objects.create(
+            self.task_queue = Queues.objects.create(
                 user=self.user_obj,
                 queue_name=self.task_queue,
                 queue_type="Task"
             )
         
             self.control_queue += f"-{self.user_obj.username}-{Queues.objects.filter(user_id=self.user_obj.id, queue_type='Control').count()}"
-            Queues.objects.create(
+            self.control_queue = Queues.objects.create(
                 user=self.user_obj,
                 queue_name=self.control_queue,
                 queue_type="Control"
@@ -160,13 +170,17 @@ class QueueManager:
             return serializer.data
         
         def create_queues(self):
-            if self.execution_mode == "Remote":
-                self.rmq.create_exchange(self.user_obj.username)
-                self.rmq.create_queue(self.task_queue, self.user_obj.username)
-                self.rmq.create_queue(self.control_queue, self.user_obj.username)
-            else:
-                pass
-        
+            try:
+                if self.execution_mode == "Remote":
+                    self.rmq.create_exchange(self.user_obj.username)
+                    self.rmq.create_queue(self.task_queue, self.user_obj.username)
+                    self.rmq.create_queue(self.control_queue, self.user_obj.username)
+                    return self.task_queue.id, self.control_queue.id, "created"
+                else:
+                    return 0, 0, "cloud"
+            except:
+                return 0, 0, "error"
+            
         def delete_queues(self, force=False):
             if self.execution_mode == "Remote":
                 self.rmq.delete_queue(self.task_queue, force=force)

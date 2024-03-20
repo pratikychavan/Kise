@@ -23,7 +23,8 @@ class Queues(Base):
 
 class Worker(Base):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="user-worker")
-    queue_name = models.ForeignKey(Queues, on_delete=models.CASCADE, related_name="worker-queue")
+    task_queue = models.ForeignKey(Queues, on_delete=models.CASCADE, related_name="worker-task-queue")
+    control_queue = models.ForeignKey(Queues, on_delete=models.CASCADE, related_name="worker-control-queue")
     worker_name = models.CharField(max_length=50, default="", null=True)
 
 

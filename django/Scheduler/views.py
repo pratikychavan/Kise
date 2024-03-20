@@ -5,7 +5,9 @@ from rest_framework.views import APIView
 from django.contrib.auth.models import User
 
 from Scheduler.venv_controller import vp
-from Scheduler.lepus import QueueManager
+from Scheduler.models import Worker
+from Scheduler.lepus import QueueManager, decrypt_password
+from Auth.serializers import LoginSerializer
 from uuid import uuid4
 # Create your views here.
 
@@ -14,7 +16,21 @@ class RegisterWorker(APIView):
     def post(self, request):
         data = request.data
         user = User.objects.get(username=data["username"])
-        
+        data["password"] = decrypt_password(data["password"])
+        workername = data.pop("workername")
+        serializer = LoginSerializer(data=data)
+        if serializer.is_valid():
+            qm = QueueManager(user, execution_mode="Remote")
+            task_queue, control_queue, stat = qm.create_queues()
+            if stat == "created":
+                Worker.objects.create(
+                    user=user,
+                    workername=workername,
+                    task_queue_id=task_queue,
+                    control_queue_id=control_queue
+                )
+                return Response({"msg": "Registration successful."}, status=status.HTTP_200_OK)
+        return Response({"msg": "Registration failed."}, status=status.HTTP_400_BAD_REQUEST)
 
 class ExecuteJobs(APIView):
     def post(self, request, *args, **kwargs):
